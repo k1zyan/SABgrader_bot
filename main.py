@@ -6,12 +6,12 @@ import aiosqlite
 import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, WebAppInfo
 
 # ================= КОНФИГ =================
-import os
-BOT_TOKEN = os.getenv("BOT_TOKEN")# ОБЯЗАТЕЛЬНО ПОМЕНЯЙ!
-ADMIN_ID = 2092773964
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Сюда потом вставишь ссылку на свой Mini App (от Vercel или GitHub Pages)
+WEBAPP_URL = "https://google.com" 
 DB_PATH = "game.db"
 
 # ================= ДАННЫЕ БРЕЙНРОТОВ (Цены 1 в 1 со скринов) =================
@@ -184,17 +184,17 @@ BRAINROTS = [
 
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, balance INTEGER DEFAULT 100000)")
+        await db.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, balance INTEGER DEFAULT 0, inventory TEXT DEFAULT '[]')")
         await db.commit()
 
 async def get_balance(user_id):
     async with aiosqlite.connect(DB_PATH) as db:
+        # Используем INSERT OR IGNORE, чтобы не было ошибки при повторном /start
+        await db.execute("INSERT OR IGNORE INTO users (user_id, balance) VALUES (?, 0)", (user_id,))
+        await db.commit()
         async with db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
-            if row: return row[0]
-            await db.execute("INSERT INTO users (user_id, balance) VALUES (?, 100000)", (user_id,))
-            await db.commit()
-            return 100000
+            return row[0] if row else 0
 
 async def update_balance(user_id, amount):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -234,60 +234,24 @@ dp = Dispatcher()
 
 @dp.message(CommandStart())
 async def start(message: Message):
-    balance = await get_balance(message.from_user.id)
+    # Создаем пользователя в базе (с балансом 0)
+    await get_balance(message.from_user.id)
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎰 Открыть кейс (100 ₽)", callback_data="open_case")],
-        [InlineKeyboardButton(text="⬆️ Апгрейдер", callback_data="upgrade_menu")]
+        [InlineKeyboardButton(text="🎮 Играть", web_app=WebAppInfo(url=WEBAPP_URL))]
     ])
-    await message.answer(f"👋 Добро пожаловать в SABgrader!\n\n💰 Твой баланс: {balance} ₽", reply_markup=kb)
-
-@dp.callback_query(F.data == "open_case")
-async def open_case(call: CallbackQuery):
-    user_id = call.from_user.id
-    balance = await get_balance(user_id)
-    case_price = 100
     
-    if balance < case_price:
-        await call.answer("Недостаточно средств!", show_alert=True)
-        return
+    text = (
+        "👋 Добро пожаловать в SABgrader!\n\n"
+        "Открывай кейсы, улучшай брейнротов и выводи их быстрее всех! 🚀"
+    )
+    await message.answer(text, reply_markup=kb)
 
-    await update_balance(user_id, -case_price)
-    await call.message.edit_text("🎰 Открываем кейс...")
-
-    # Анимация прокрутки
-    for _ in range(5):
-        fake = random.choice(BRAINROTS)
-        img_path = await get_image(fake["name"])
-        try:
-            if img_path:
-                await call.message.edit_media(media=FSInputFile(img_path), caption=f"🎲 {fake['name']}...")
-            else:
-                await call.message.edit_text(f"🎲 {fake['name']}...")
-        except:
-            await call.message.edit_text(f"🎲 {fake['name']}...")
-        await asyncio.sleep(0.2)
-
-    # Выигрыш
-    win = random.choice(BRAINROTS)
-    img_path = await get_image(win["name"])
-    text = f"🏆 Ты выиграл: **{win['name']}**!\n💰 Стоимость: {win['price']} ₽"
-    
-    try:
-        if img_path:
-            await call.message.edit_media(media=FSInputFile(img_path), caption=text, parse_mode="Markdown")
-        else:
-            await call.message.edit_text(text, parse_mode="Markdown")
-    except:
-        await call.message.edit_text(text, parse_mode="Markdown")
-
-    # Звук (если есть)
-    if os.path.exists("sounds/win.mp3"):
-        try: await call.message.answer_audio(FSInputFile("sounds/win.mp3"))
-        except: pass
-
-@dp.callback_query(F.data == "upgrade_menu")
-async def upgrade_menu(call: CallbackQuery):
-    await call.answer("Здесь будет выбор предмета для апгрейда (доделаем позже)", show_alert=True)
+# Этот обработчик будет ловить данные из Mini App
+@dp.message(F.web_app_data)
+async def web_app_data_handler(message: Message):
+    data = message.web_app_data.data
+    await message.answer(f"Получены данные из Web App: {data}")
 
 async def main():
     await init_db()
