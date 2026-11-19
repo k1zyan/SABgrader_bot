@@ -9,7 +9,8 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 # ================= КОНФИГ =================
-BOT_TOKEN = "9059779756:AAG-2MF3Km76UeqIRYUmI0ov15Lng_XBDYg" # ОБЯЗАТЕЛЬНО ПОМЕНЯЙ!
+import os
+BOT_TOKEN = os.getenv("BOT_TOKEN")# ОБЯЗАТЕЛЬНО ПОМЕНЯЙ!
 ADMIN_ID = 2092773964
 DB_PATH = "game.db"
 
