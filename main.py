@@ -11,7 +11,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 # ================= КОНФИГ =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 # Сюда потом вставишь ссылку на свой Mini App (от Vercel или GitHub Pages)
-WEBAPP_URL = "https://google.com" 
+WEBAPP_URL = "https://sabgrader-web-vs13.vercel.app/" 
 DB_PATH = "game.db"
 
 # ================= ДАННЫЕ БРЕЙНРОТОВ (Цены 1 в 1 со скринов) =================
